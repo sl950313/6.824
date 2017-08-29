@@ -34,7 +34,7 @@ import "hash/fnv"
 // which Merge() merges into a single output.
 
 // Debugging
-const Debug = 0
+const Debug = 1
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
   if Debug > 0 {
@@ -61,9 +61,12 @@ type MapReduce struct {
   stats *list.List
 
   // Map of registered workers that you need to keep up to date
-  Workers map[string]*WorkerInfo 
+  Workers map[string]*WorkerInfo
 
   // add any additional state here
+  totalWork int
+  remainMap int
+  remainReduce int
 }
 
 func InitMapReduce(nmap int, nreduce int,
@@ -76,8 +79,12 @@ func InitMapReduce(nmap int, nreduce int,
   mr.alive = true
   mr.registerChannel = make(chan string)
   mr.DoneChannel = make(chan bool)
+  mr.Workers = make(map[string]*WorkerInfo)
 
   // initialize any additional state here
+  mr.totalWork = nmap + nreduce
+  mr.remainMap = nmap
+  mr.remainReduce = nreduce
   return mr
 }
 
@@ -91,8 +98,14 @@ func MakeMapReduce(nmap int, nreduce int,
 
 func (mr *MapReduce) Register(args *RegisterArgs, res *RegisterReply) error {
   DPrintf("Register: worker %s\n", args.Worker)
-  mr.registerChannel <- args.Worker
+  worker := new(WorkerInfo)
+  worker.address = args.Worker
+  worker.idle = true
+  mr.Workers[args.Worker] = worker
   res.OK = true
+  DPrintf("Register return : worker %s\n", args.Worker)
+  //mr.registerChannel <- args.Worker
+  //DPrintf("Register return : worker %s\n", args.Worker)
   return nil
 }
 
@@ -118,6 +131,7 @@ func (mr *MapReduce) StartRegistrationServer() {
   go func() {
     for mr.alive {
       conn, err := mr.l.Accept()
+      fmt.Printf("Master Accept\n")
       if err == nil {
         go func() {
           rpcs.ServeConn(conn)

@@ -49,10 +49,12 @@ func Register(master string, me string) {
   args := &RegisterArgs{}
   args.Worker = me
   var reply RegisterReply
+  fmt.Printf("Register: RPC %s register calling\n", master)
   ok := call(master, "MapReduce.Register", args, &reply)
   if ok == false {
     fmt.Printf("Register: RPC %s register error\n", master)
   }
+  fmt.Printf("Register: RPC %s register success\n", master)
 }
 
 // Set up a connection with the master, register with the master,
@@ -77,8 +79,11 @@ func RunWorker(MasterAddress string, me string,
   Register(MasterAddress, me)
 
   // DON'T MODIFY CODE BELOW
+  fmt.Printf("wk.nRPC = %d\n", wk.nRPC)
   for wk.nRPC != 0 {
+    fmt.Printf("begin Accept\n")
     conn, err := wk.l.Accept()
+    fmt.Printf("Accept ?\n")
     if err == nil {
       wk.nRPC -= 1
       go rpcs.ServeConn(conn)
