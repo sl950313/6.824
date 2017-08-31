@@ -166,7 +166,6 @@ func TestOneFailure(t *testing.T) {
 }
 
 func TestManyFailures(t *testing.T) {
-   return 
   fmt.Printf("Test: One ManyFailures mapreduce ...\n")
   mr := setup()
   i := 0

@@ -28,7 +28,7 @@ func (mr *MapReduce) KillWorkers() *list.List {
   return l
 }
 
-func DispatchWork(mr *MapReduce, worker *WorkerInfo, num int, work string) {
+func DispatchWork(mr *MapReduce, worker *WorkerInfo, jobNumber int, num int, work string) {
    fmt.Printf("dispatch work : %s\n", work)
    args := &DoJobArgs{}
    //args.File = MapName(mr.file, mr.remainMap)
@@ -43,7 +43,9 @@ func DispatchWork(mr *MapReduce, worker *WorkerInfo, num int, work string) {
    fmt.Printf("here 1? \n");
    if ok == false {
       fmt.Printf("worker %s DoJob error\n", worker.address)
+      mr.jobsNotDone[jobNumber] = 0
    } else {
+      mr.jobsNotDone[jobNumber] = 1
       if work == "Map" {
          mr.remainMap--
       } else {
@@ -56,40 +58,36 @@ func DispatchWork(mr *MapReduce, worker *WorkerInfo, num int, work string) {
 func (mr *MapReduce) RunMaster() *list.List {
    fmt.Printf("master dispatch work begin...\n");
    fmt.Printf("worker num = %d ...\n", len(mr.Workers));
-   var num int
-   num = mr.remainMap
-   var jobs [num]int
-   //jobs = make()
-   for num > 0 {
-      for _, w := range mr.Workers  {
-         if w.idle == true {
-            w.idle = false
-            //mr.remainMap--
-            //num = mr.remainMap - 1
-            num--
-            go DispatchWork(mr, w, num, "Map")
-         }
-      }
-   }
    for mr.remainMap > 0 {
-
-   }
-
-   num = mr.remainReduce
-   for num > 0 {
-      for _, w := range mr.Workers {
-         if w.idle == true {
-            w.idle = false
-            //mr.remainReduce--
-            //num = mr.remainReduce
-            num--
-            go DispatchWork(mr, w, num, "Reduce")
+      for i := 0; i < mr.nMap; i++ {
+         if (mr.jobsNotDone[i] == 0) {
+            for _, w := range mr.Workers  {
+               if w.idle == true {
+                  w.idle = false
+                  fmt.Printf("i = %d, done[%d] = %d\n", i, i, mr.jobsNotDone[i])
+                  mr.jobsNotDone[i] = 1
+                  go DispatchWork(mr, w, i, i, "Map")
+                  break
+               }
+            }
          }
       }
+
    }
 
    for mr.remainReduce > 0 {
-
+      for i := mr.nMap; i < mr.nReduce + mr.nMap; i++ {
+         if (mr.jobsNotDone[i] == 0) {
+            for _, w := range mr.Workers {
+               if w.idle == true {
+                  w.idle = false
+                  mr.jobsNotDone[i] = 1
+                  go DispatchWork(mr, w, i, i - mr.nMap, "Reduce")
+                  break
+               }
+            }
+         }
+      }
    }
    // Your code here
    return mr.KillWorkers()
